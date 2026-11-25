@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expense Tracker</title>
+  <style>
+    :root {
+  --bg: #fff0f6;
+  --card: #ffffff;
+  --ink: #4a1d33;
+  --muted: #a65d83;
+  --line: #f8c8dc;
+  --income: #e8559a;
+  --expense: #9c2a63;
+  --accent: #ff4fa3;
+}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, Arial, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.5;
+      padding: 24px 16px 48px;
+    }
+    .app { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; margin-bottom: 4px; }
+    .sub { color: var(--muted); margin-bottom: 20px; }
+
+    /* ----- Summary: balance, income, expenses ----- */
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+    .box span { color: var(--muted); font-size: .9rem; }
+    .box strong { display: block; font-size: 1.5rem; margin-top: 2px; }
+    #income { color: var(--income); }
+    #expense { color: var(--expense); }
+    .balance { border-left: 5px solid var(--accent); }
+
+    /* ----- Form ----- */
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 20px; }
+    .panel h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: .9rem; color: var(--muted); margin-bottom: 3px; }
+    input, select {
+      width: 100%; padding: 9px 10px; font: inherit;
+      border: 1px solid var(--line); border-radius: 6px; background: #fff;
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid var(--accent); outline-offset: 2px;
+    }
+    .add-btn {
+      background: var(--accent); color: #fff; border: none; border-radius: 6px;
+      padding: 10px 22px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    #error { color: var(--expense); min-height: 1.3em; margin-top: 8px; font-size: .95rem; }
+
+    /* ----- List ----- */
+    .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+    .list-head select { width: auto; }
+    ul { list-style: none; }
+    li {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--line);
+    }
+    li:last-child { border-bottom: none; }
+    .info small { color: var(--muted); display: block; }
+    .amount { font-weight: 700; white-space: nowrap; }
+    .amount.income { color: var(--income); }
+    .amount.expense { color: var(--expense); }
+    .del {
+      background: none; border: 1px solid var(--line); border-radius: 6px;
+      color: var(--expense); cursor: pointer; padding: 3px 10px; font: inherit;
+    }
+    .del:hover { background: #fbeeee; }
+    .empty { color: var(--muted); padding: 12px 0; }
+    .clear { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; margin-top: 12px; }
+
+    @media (max-width: 560px) {
+      .summary { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Expense Tracker</h1>
+    <p class="sub">Add your income and expenses and see what is left.</p>
+
+    <!-- ============ SUMMARY ============ -->
+    <div class="summary">
+      <div class="box balance"><span>Balance</span><strong id="balance">₹0.00</strong></div>
+      <div class="box"><span>Total income</span><strong id="income">₹0.00</strong></div>
+      <div class="box"><span>Total expenses</span><strong id="expense">₹0.00</strong></div>
+    </div>
+
+    <!-- ============ ADD FORM ============ -->
+    <div class="panel">
+      <h2>Add a transaction</h2>
+      <form id="form" novalidate>
+        <div class="form-grid">
+          <div class="full">
+            <label for="desc">Description</label>
+            <input type="text" id="desc" placeholder="e.g. Pocket money, Books, Canteen">
+          </div>
+          <div>
+            <label for="amount">Amount (₹)</label>
+            <input type="number" id="amount" placeholder="0" min="0" step="0.01">
+          </div>
+          <div>
+            <label for="type">Type</label>
+            <select id="type">
+              <option value="income">Income</option>
+              <option value="expense" selected>Expense</option>
+            </select>
+          </div>
+          <div class="full">
+            <label for="category">Category</label>
+            <select id="category">
+              <option>Food</option>
+              <option>Travel</option>
+              <option>Study</option>
+              <option>Shopping</option>
+              <option>Bills</option>
+              <option>Salary / Allowance</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="full">
+            <button class="add-btn" type="submit">Add transaction</button>
+            <p id="error" role="alert"></p>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- ============ TRANSACTION LIST ============ -->
+    <div class="panel">
+      <div class="list-head">
+        <h2>Transactions</h2>
+        <select id="filter" aria-label="Filter transactions">
+          <option value="all">Show all</option>
+          <option value="income">Income only</option>
+          <option value="expense">Expenses only</option>
+        </select>
+      </div>
+      <ul id="list"></ul>
+      <button class="clear" id="clear" type="button">Clear all transactions</button>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================
+       DATA
+       In C you would write:  struct Transaction list[100];
+       In JS we use an ARRAY OF OBJECTS. It can grow freely.
+       ===================================================== */
+    let transactions = [];
+
+    // Load saved data from Local Storage (the browser's tiny "file").
+    // Local Storage only stores text, so we convert text <-> array with JSON.
+    try {
+      transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+    } catch (err) {
+      transactions = [];
+    }
+
+    // Get the HTML elements we need (like getting pointers to them)
+    const form = document.getElementById("form");
+    const descInput = document.getElementById("desc");
+    const amountInput = document.getElementById("amount");
+    const typeInput = document.getElementById("type");
+    const categoryInput = document.getElementById("category");
+    const errorBox = document.getElementById("error");
+    const listEl = document.getElementById("list");
+    const filterEl = document.getElementById("filter");
+
+    // Format a number as rupees, e.g. 1500 -> ₹1,500.00
+    function money(n) {
+      return "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Save the array into Local Storage
+    function save() {
+      try {
+        localStorage.setItem("transactions", JSON.stringify(transactions));
+      } catch (err) {
+        /* storage may be blocked; the app still works until refresh */
+      }
+    }
+
+    /* =====================================================
+       SUMMARY: loop through the array and add up totals
+       ===================================================== */
+    function updateSummary() {
+      let income = 0;
+      let expense = 0;
+      for (let i = 0; i < transactions.length; i++) {
+        if (transactions[i].type === "income") {
+          income += transactions[i].amount;
+        } else {
+          expense += transactions[i].amount;
+        }
+      }
+      document.getElementById("income").textContent = money(income);
+      document.getElementById("expense").textContent = money(expense);
+      document.getElementById("balance").textContent = money(income - expense);
+    }
+
+    /* =====================================================
+       SHOW THE LIST on the page (redraw everything)
+       ===================================================== */
+    function render() {
+      listEl.innerHTML = "";
+      const filter = filterEl.value;
+
+      let shown = 0;
+      // newest first: loop from the end of the array to the start
+      for (let i = transactions.length - 1; i >= 0; i--) {
+        const t = transactions[i];
+        if (filter !== "all" && t.type !== filter) continue; // skip if filtered out
+        shown++;
+
+        const li = document.createElement("li");
+
+        const info = document.createElement("div");
+        info.className = "info";
+        const title = document.createElement("strong");
+        title.textContent = t.desc;
+        const small = document.createElement("small");
+        small.textContent = t.category + " • " + t.date;
+        info.appendChild(title);
+        info.appendChild(small);
+
+        const amount = document.createElement("span");
+        amount.className = "amount " + t.type;
+        amount.textContent = (t.type === "income" ? "+ " : "- ") + money(t.amount);
+
+        const del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "Delete";
+        del.setAttribute("aria-label", "Delete " + t.desc);
+        del.addEventListener("click", function () { removeTransaction(t.id); });
+
+        li.appendChild(info);
+        li.appendChild(amount);
+        li.appendChild(del);
+        listEl.appendChild(li);
+      }
+
+      if (shown === 0) {
+        const p = document.createElement("li");
+        p.className = "empty";
+        p.textContent = "No transactions yet. Add your first one above.";
+        listEl.appendChild(p);
+      }
+      updateSummary();
+    }
+
+    /* =====================================================
+       ADD a transaction (runs when the form is submitted)
+       ===================================================== */
+    form.addEventListener("submit", function (e) {
+      e.preventDefault(); // stop the page reload
+
+      const desc = descInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+
+      // Validation: check input before using it
+      if (desc === "") {
+        errorBox.textContent = "Please enter a description.";
+        return;
+      }
+      if (isNaN(amount) || amount <= 0) {
+        errorBox.textContent = "Please enter an amount greater than 0.";
+        return;
+      }
+      errorBox.textContent = "";
+
+      // Create one "struct" (object) and push it into the array
+      transactions.push({
+        id: Date.now(),                 // unique number for deleting later
+        desc: desc,
+        amount: amount,
+        type: typeInput.value,          // "income" or "expense"
+        category: categoryInput.value,
+        date: new Date().toLocaleDateString("en-IN")
+      });
+
+      save();
+      render();
+      form.reset();
+      typeInput.value = "expense";
+      descInput.focus();
+    });
+
+    /* =====================================================
+       DELETE one transaction: keep everything except that id
+       ===================================================== */
+    function removeTransaction(id) {
+      transactions = transactions.filter(function (t) { return t.id !== id; });
+      save();
+      render();
+    }
+
+    // Filter dropdown: redraw when it changes
+    filterEl.addEventListener("change", render);
+
+    // Clear everything
+    document.getElementById("clear").addEventListener("click", function () {
+      if (transactions.length === 0) return;
+      if (confirm("Delete all transactions? This cannot be undone.")) {
+        transactions = [];
+        save();
+        render();
+      }
+    });
+
+    // First draw when the page opens
+    render();
+  </script>
+</body>
+</html>
